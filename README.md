@@ -2,7 +2,55 @@
 
 **An open-source national Electronic Medical Record for Aotearoa New Zealand — free, crowd-sourced, and built to run on the hardware clinics already own.**
 
-> ⚠️ **Status: design phase.** There is no code yet. What exists today is a detailed architecture plan ([PLAN.md](PLAN.md)) and an open invitation to help build it.
+> **Status: walking skeleton is live.** `docker compose up` gives you a FHIR R4 API and a small web UI: register a synthetic patient, write a clinical note, and watch a tamper-evident audit chain grow in real time. The architecture plan is [PLAN.md](PLAN.md); the skeleton proves its riskiest seams.
+
+## Quickstart (2 minutes)
+
+```bash
+git clone https://github.com/sekickivuk-hue/nz-open-emr.git
+cd nz-open-emr
+docker compose up -d --build
+open http://localhost:8080
+```
+
+Pick a synthetic clinician, register a patient (the NHI is generated in either the legacy `AAA111#` or post-July-2026 `AAA11A#` format — both validated per HISO 10046), write a note, and watch the audit panel: every read and write is an `AuditEvent`, BLAKE3-hash-chained to the previous one. Press **Verify chain**.
+
+Prefer curl? The API is plain FHIR R4:
+
+```bash
+curl -s -X POST localhost:8080/fhir/r4/Patient \
+  -H 'X-Actor-HPI: 99ZZZA' -H 'Content-Type: application/json' \
+  -d '{"resourceType":"Patient",
+       "identifier":[{"system":"https://standards.digital.health.nz/ns/nhi-id","value":"ZZZ0016"}],
+       "name":[{"family":"Skeleton","given":["Walking"]}]}'
+curl -s localhost:8080/audit/verify
+```
+
+### The tamper demo
+
+The point of the audit chain is that **nobody — not even the database administrator — can silently alter the record**:
+
+```bash
+# Edit history behind the system's back:
+docker compose exec db psql -U emr -d emr \
+  -c "UPDATE audit_events SET actor_hpi = 'EVIL' WHERE seq = 2"
+
+# Verification pinpoints the exact broken row:
+curl -s localhost:8080/audit/verify
+# → {"ok":false,"checked":1,"brokenSeq":2,"reason":"hash mismatch"}
+
+# And emrd refuses to boot over a corrupted chain:
+docker compose restart emrd && docker compose logs emrd | tail -2
+# → "audit chain verification FAILED — refusing to start"
+
+docker compose down -v   # reset the demo
+```
+
+### What the skeleton proves (and what it doesn't)
+
+In: event-sourced clinical record (append-only `events` table is the source of truth; patient/note views are projections), atomic event+audit transactions, record-level read auditing, dual-NHI validation, FHIR R4 surface, one Go binary + Postgres — runs in ~20 MB of RAM. Out (for now, by design): OpenEHR storage (first public RFC), real OIDC login, consent, TLS, search. See [docs/superpowers/specs](docs/superpowers/specs/) for the spec and scope fences.
+
+Run the tests: `docker compose up -d db && TEST_DATABASE_URL=postgres://emr:emr@localhost:5435/emr go test -p 1 ./...`
 
 ## The idea
 
@@ -28,7 +76,7 @@ No single person can build a national EMR. Right now the most valuable contribut
 
 1. **Review the architecture** — open an issue challenging any decision in [PLAN.md](PLAN.md). NZ health-IT experience especially welcome (FHIR, OpenEHR, HL7v2, NHI/HPI integration, Medtech/Indici internals).
 2. **Clinical input** — GPs, SMOs, pharmacists, nurses: tell us what your software gets wrong. The plan's known gaps (clinical safety case, governance, migration strategy) are listed at the end of PLAN.md.
-3. **Code is coming** — the first milestone is a walking skeleton: create a synthetic patient, write a clinical note, see the tamper-evident audit event, all via `docker compose up`. Watch/star the repo if you want to be there when it lands.
+3. **Run the skeleton and break it** — `docker compose up`, try the tamper demo, file issues for anything surprising. First good contribution targets: the OpenEHR engine RFC, FHIR validation depth, and the items in PLAN.md's "Known gaps".
 
 ## Roadmap (high level)
 
