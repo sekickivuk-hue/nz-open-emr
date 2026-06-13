@@ -62,6 +62,34 @@ New Zealand's health software is fragmented and expensive. Hospitals, GPs, and p
 - **A national, connected record** that those practices (and hospitals) join with one command, giving clinicians the whole picture and patients access to their own record.
 - **A national research capability** over de-identified data, gated by explicit per-citizen consent, where queries run inside a trusted environment and only aggregates leave.
 
+### Why I'm building this
+
+Over fifteen years I've practised medicine in three countries and worked in at least ten different EMRs. That's an unusual vantage point: once you've used that many systems you stop assuming the software you're handed is the best anyone can do — because you've seen, first-hand, what good and bad actually look like.
+
+In the United States I could carry 15–20 patients on my own — every admission, every discharge summary, every prescription, written by me, without a junior in sight. The software got out of my way. In New Zealand the same workload is impossible without junior staff doing the legwork — not because our clinicians are any worse, but because the tooling fights them at every step.
+
+The lesson is **not** "American software is good." Those streamlined US systems come with enormous licence costs and absurd hardware requirements — not because the problem is hard, but because the code is written to generate revenue, not to be fast, frugal, or kind to the person using it. Bloat is a business model.
+
+This project inverts that:
+
+- The interface is **doctor-led** — designed by the people who actually live in it for ten hours a day, around clinical reality rather than billing codes.
+- The code underneath is **led by security experts and engineers** with one obsession: do the most clinical work on the least hardware — and give it away for free.
+
+### Why not just pay Epic or Microsoft?
+
+Because our data should stay ours. When a country buys a foreign platform it outsources two things at once: its patients' records *and* the engineering talent that could have been employed at home. Build it in the open instead, and the equation flips:
+
+- **Patients** keep ownership of their own record and a real say in how it's used.
+- **Doctors** get software shaped around how medicine is actually practised.
+- **The IT and software sector** gains skilled, onshore jobs maintaining national infrastructure instead of paying rent to overseas vendors.
+- **The country** keeps its health data sovereign and safe — *ours, and only ours* — and stays independent of any single corporation that could one day raise the price or pull the plug.
+
+### "Aren't you helping doctors compete with you?"
+
+Yes — deliberately. The fear that empowering other doctors somehow costs you is a myth. The real barrier to good independent practice isn't competition; it's the wall of legal, compliance, and IT-infrastructure cost a clinician has to climb before they can even open the doors. Knock that wall down and more good doctors can practise — and the lower their overheads, the cheaper their care is for the patients who depend on them. **Lowering the cost of running a practice is, in the end, lowering the cost of healthcare for everyone.**
+
+That's the wager behind this project: that software built by clinicians and engineers, owned by the public, and given away for free can serve patients, doctors, the IT sector, and the whole country better than anything sold to us ever has.
+
 Designed for a 20–50 year lifespan: OpenEHR as the canonical clinical model, FHIR R4 (NZ Base) for exchange, event-sourced storage in PostgreSQL, Go services, all on Linux, all open standards. Frugal by design — the target floor for a full GP-clinic deployment is a ten-year-old 4-core machine with 8 GB of RAM.
 
 Read the full architecture: **[PLAN.md](PLAN.md)**
