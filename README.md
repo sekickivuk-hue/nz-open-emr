@@ -75,22 +75,14 @@ This project inverts that:
 - The interface is **doctor-led** — designed by the people who actually live in it for ten hours a day, around clinical reality rather than billing codes.
 - The code underneath is **led by security experts and engineers** with one obsession: do the most clinical work on the least hardware — and give it away for free.
 
-### Why not just pay Epic or Microsoft?
+### Why build it, instead of just paying Epic or Microsoft?
 
-Because our data should stay ours. When a country buys a foreign platform it outsources two things at once: its patients' records *and* the engineering talent that could have been employed at home. Build it in the open instead, and the equation flips:
+Because our data should stay ours, and the benefits should stay here. When a country buys a foreign platform it outsources two things at once: its patients' records *and* the engineering talent that could have been employed at home. Build it in the open instead, and the equation flips — for everyone:
 
 - **Patients** keep ownership of their own record and a real say in how it's used.
-- **Doctors** get software shaped around how medicine is actually practised.
-- **The IT and software sector** gains skilled, onshore jobs maintaining national infrastructure instead of paying rent to overseas vendors.
+- **Doctors** get safe, genuinely user-friendly software shaped around clinical work rather than around a licence fee — and a far lower barrier to independent practice. Opening a private practice today means climbing a wall of compliance and IT-infrastructure cost before you see a single patient; take the software cost off that wall and more clinicians can practise on their own terms, which ultimately means more affordable care.
+- **The IT and software sector** gains skilled, onshore jobs building and maintaining national health infrastructure, instead of sending licence fees overseas year after year.
 - **The country** keeps its health data sovereign and safe — *ours, and only ours* — and stays independent of any single corporation that could one day raise the price or pull the plug.
-
-### The bigger goal
-
-What I want this project to do, in plain terms:
-
-- **Give every doctor safe, free, genuinely user-friendly software** — tools shaped around clinical work instead of around a licence fee.
-- **Lower the barrier to independent practice.** Opening a private practice today means climbing a wall of compliance and IT-infrastructure cost before you see a single patient. Take the software cost off that wall and more clinicians can practise on their own terms — and lower overheads ultimately mean more affordable care for patients.
-- **Keep the work, and the money, local.** Employ New Zealand developers to build and maintain national health infrastructure, rather than sending licence fees overseas year after year.
 
 And the longer horizon is bigger than New Zealand. There is nothing NZ-specific about the core of this system. A free, frugal, open EMR that runs well on cheap, old hardware is exactly what under-resourced health systems everywhere need most — especially across the developing world, where commercial licences and data-centre requirements are simply out of reach. If it works here, it can be adapted anywhere.
 
