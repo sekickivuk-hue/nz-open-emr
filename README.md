@@ -66,7 +66,7 @@ New Zealand's health software is fragmented and expensive. Hospitals, GPs, and p
 
 Over fifteen years I've practised medicine in three countries and worked in at least ten different EMRs. That's an unusual vantage point: once you've used that many systems you stop assuming the software you're handed is the best anyone can do — because you've seen, first-hand, what good and bad actually look like.
 
-In the United States I could carry 15–20 patients on my own — every admission, every discharge summary, every prescription, written by me, without a junior in sight. The software got out of my way. In New Zealand the same workload is impossible without junior staff doing the legwork — not because our clinicians are any worse, but because the tooling fights them at every step.
+In the United States, well-built software let me carry 15–20 patients largely on my own — admissions, discharge summaries, prescriptions — because it got out of my way. Working in New Zealand, I've leaned much more on the support of junior colleagues to manage a comparable load. The clinicians here are every bit as capable; the difference is the tooling, which too often adds friction where it should be removing it.
 
 The lesson is **not** "American software is good." Those streamlined US systems come with enormous licence costs and absurd hardware requirements — not because the problem is hard, but because the code is written to generate revenue, not to be fast, frugal, or kind to the person using it. Bloat is a business model.
 
@@ -84,11 +84,17 @@ Because our data should stay ours. When a country buys a foreign platform it out
 - **The IT and software sector** gains skilled, onshore jobs maintaining national infrastructure instead of paying rent to overseas vendors.
 - **The country** keeps its health data sovereign and safe — *ours, and only ours* — and stays independent of any single corporation that could one day raise the price or pull the plug.
 
-### "Aren't you helping doctors compete with you?"
+### The bigger goal
 
-Yes — deliberately. The fear that empowering other doctors somehow costs you is a myth. The real barrier to good independent practice isn't competition; it's the wall of legal, compliance, and IT-infrastructure cost a clinician has to climb before they can even open the doors. Knock that wall down and more good doctors can practise — and the lower their overheads, the cheaper their care is for the patients who depend on them. **Lowering the cost of running a practice is, in the end, lowering the cost of healthcare for everyone.**
+What I want this project to do, in plain terms:
 
-That's the wager behind this project: that software built by clinicians and engineers, owned by the public, and given away for free can serve patients, doctors, the IT sector, and the whole country better than anything sold to us ever has.
+- **Give every doctor safe, free, genuinely user-friendly software** — tools shaped around clinical work instead of around a licence fee.
+- **Lower the barrier to independent practice.** Opening a private practice today means climbing a wall of compliance and IT-infrastructure cost before you see a single patient. Take the software cost off that wall and more clinicians can practise on their own terms — and lower overheads ultimately mean more affordable care for patients.
+- **Keep the work, and the money, local.** Employ New Zealand developers to build and maintain national health infrastructure, rather than sending licence fees overseas year after year.
+
+And the longer horizon is bigger than New Zealand. There is nothing NZ-specific about the core of this system. A free, frugal, open EMR that runs well on cheap, old hardware is exactly what under-resourced health systems everywhere need most — especially across the developing world, where commercial licences and data-centre requirements are simply out of reach. If it works here, it can be adapted anywhere.
+
+That's the ultimate ambition: not just better software for one country, but a public good any country can pick up, translate to its own standards, and make its own — health software as shared human infrastructure rather than something rented from a handful of corporations.
 
 Designed for a 20–50 year lifespan: OpenEHR as the canonical clinical model, FHIR R4 (NZ Base) for exchange, event-sourced storage in PostgreSQL, Go services, all on Linux, all open standards. Frugal by design — the target floor for a full GP-clinic deployment is a ten-year-old 4-core machine with 8 GB of RAM.
 
