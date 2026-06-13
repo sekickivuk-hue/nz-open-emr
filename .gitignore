@@ -1,4 +1,4 @@
-emrd
+/emrd
 *.test
 coverage.out
 .DS_Store
