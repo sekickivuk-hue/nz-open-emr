@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: emr
+      POSTGRES_PASSWORD: emr   # local demo only; all data is synthetic
+      POSTGRES_DB: emr
+    ports:
+      - "5435:5432"            # exposed for local integration tests
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emr -d emr"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  emrd:
+    build: .
+    environment:
+      DATABASE_URL: postgres://emr:emr@db:5432/emr
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  dbdata:
