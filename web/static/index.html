@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nz-open-emr — walking skeleton</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Kia ora — <span class="brand">nz-open-emr</span> <small>walking skeleton</small></h1>
+  <label class="actor-picker">Acting as <select id="actor"></select></label>
+</header>
+<main>
+  <section id="patients-panel" class="panel">
+    <h2>Patients</h2>
+    <ul id="patient-list" class="list"></ul>
+    <form id="new-patient">
+      <h3>Register synthetic patient</h3>
+      <input id="given" placeholder="Given name" required autocomplete="off">
+      <input id="family" placeholder="Family name" required autocomplete="off">
+      <input id="dob" type="date" aria-label="Date of birth">
+      <fieldset>
+        <legend>NHI format</legend>
+        <label><input type="radio" name="fmt" value="legacy" checked> legacy <code>AAA111#</code></label>
+        <label><input type="radio" name="fmt" value="new"> new <code>AAA11A#</code> <small>(from Jul 2026)</small></label>
+      </fieldset>
+      <div class="nhi-row">Synthetic NHI: <code id="nhi-preview">…</code> <button type="button" id="regen-nhi" title="Generate another">↻</button></div>
+      <button type="submit">Create patient</button>
+      <div id="patient-error" class="error" role="alert"></div>
+    </form>
+  </section>
+
+  <section id="notes-panel" class="panel">
+    <h2 id="selected-patient">Select a patient</h2>
+    <div id="patient-meta"></div>
+    <ul id="note-list" class="list"></ul>
+    <form id="new-note" hidden>
+      <textarea id="note-text" placeholder="Clinical note…" required rows="4"></textarea>
+      <button type="submit">Save note</button>
+      <div id="note-error" class="error" role="alert"></div>
+    </form>
+  </section>
+
+  <section id="audit-panel" class="panel">
+    <h2>Audit trail <button id="verify" type="button">Verify chain</button></h2>
+    <div id="verify-result" role="status"></div>
+    <ol id="audit-list" class="list mono" reversed></ol>
+  </section>
+</main>
+<footer>Every read and write above is hash-chained (BLAKE3). Try the tamper demo in the README — edit a row in Postgres and watch verification break. All patients are synthetic (Z-prefix NHIs).</footer>
+<script src="app.js"></script>
+</body>
+</html>

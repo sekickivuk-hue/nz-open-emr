@@ -22,6 +22,7 @@ import (
 	"github.com/sekickivuk-hue/nz-open-emr/internal/identity"
 	"github.com/sekickivuk-hue/nz-open-emr/internal/nhi"
 	"github.com/sekickivuk-hue/nz-open-emr/internal/projection"
+	"github.com/sekickivuk-hue/nz-open-emr/web"
 )
 
 type server struct {
@@ -48,6 +49,8 @@ func New(pool *pgxpool.Pool, proj *projection.Projector) http.Handler {
 	})
 	root.HandleFunc("GET /demo/generate-nhi", s.generateNHI)
 	root.HandleFunc("GET /healthz", s.healthz)
+	// Static demo UI at the root; it contains no PHI.
+	root.Handle("/", web.Handler())
 	return root
 }
 
