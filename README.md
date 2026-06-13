@@ -4,6 +4,8 @@
 
 > **Status: walking skeleton is live.** `docker compose up` gives you a FHIR R4 API and a small web UI: register a synthetic patient, write a clinical note, and watch a tamper-evident audit chain grow in real time. The architecture plan is [PLAN.md](PLAN.md); the skeleton proves its riskiest seams.
 
+> ⚠️ **Not official. Not affiliated with Health New Zealand.** This is an independent, personal, non-commercial open-source project by a practising health worker who got tired of slow, expensive, frustrating clinical software. It is **not** endorsed by, connected to, or representing Health New Zealand | Te Whatu Ora, the Ministry of Health, the NHI/HPI operators, or any official health system, agency, or commercial vendor. The word "national" describes the project's *ambition*, not any official status. It is **not approved for clinical use** and handles **synthetic test data only**. See the [Disclaimer](#disclaimer) below.
+
 ## Quickstart (2 minutes)
 
 ```bash
@@ -89,6 +91,20 @@ No single person can build a national EMR. Right now the most valuable contribut
 | 4 | National research tier (consent-gated, trusted research environment) |
 
 Full sequencing and rationale in [PLAN.md](PLAN.md).
+
+## Disclaimer
+
+This is an independent, non-commercial open-source project maintained in a personal capacity by a New Zealand health worker. It exists out of frustration with the clinical software we use every day, and a belief that we can do better in the open. It is a good-faith side project, nothing more official than that.
+
+**It is not an official product.** It is not affiliated with, endorsed by, sponsored by, or connected to:
+
+- Health New Zealand | Te Whatu Ora, the Ministry of Health, or any government agency;
+- the National Health Index (NHI) or Health Provider Index (HPI) operators;
+- any commercial EMR/PMS vendor (e.g. Medtech, Indici) or any officially sanctioned national health-record programme.
+
+References to NZ health standards (HISO, HL7 NZ Base FHIR, NHI/HPI identifier formats) are included for interoperability and educational purposes only and do not imply any endorsement, partnership, or approval. The word "national" in the name reflects the project's aspiration, not any official designation.
+
+This software is provided "as is", for research, evaluation, and educational use, and is **not certified or approved for use in real patient care**. It currently operates on **synthetic test data only — do not enter real patient information.** Any views expressed here are the author's own and not those of any employer.
 
 ## License
 
