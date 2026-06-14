@@ -157,8 +157,7 @@ func containsSurgical(display string) bool {
 	for _, w := range []string{"appendectomy", "appendicectomy", "cholecystectomy", "surgery",
 		"repair", "excision", "resection", "bypass", "graft", "amputation", "transplant",
 		"replacement", "fusion", "fixation", "reconstruction", "debridement", "laparotomy"} {
-		lo := toLower(display)
-		if containsStr(lo, w) {
+		if containsStr(toLower(display), w) {
 			return true
 		}
 	}

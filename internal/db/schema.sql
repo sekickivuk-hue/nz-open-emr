@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS encounters (
     closed_at       TIMESTAMPTZ,
     last_event_seq  BIGINT      NOT NULL
 );
+CREATE INDEX IF NOT EXISTS encounters_patient_idx ON encounters (patient_id);
 
 -- Diagnoses recorded during an encounter. Working diagnoses may be
 -- superseded; discharge diagnoses flow into the problem list on close.
@@ -83,6 +84,8 @@ CREATE TABLE IF NOT EXISTS encounter_diagnoses (
     recorded_at  TIMESTAMPTZ NOT NULL,
     last_event_seq BIGINT    NOT NULL
 );
+CREATE INDEX IF NOT EXISTS encounter_diagnoses_patient_idx ON encounter_diagnoses (patient_id);
+CREATE INDEX IF NOT EXISTS encounter_diagnoses_encounter_idx ON encounter_diagnoses (encounter_id);
 
 -- Problem list — active conditions. When resolved, they move to past_history.
 CREATE TABLE IF NOT EXISTS problems (

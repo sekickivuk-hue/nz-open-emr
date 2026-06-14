@@ -53,11 +53,12 @@ func New(pool *pgxpool.Pool, proj *projection.Projector) http.Handler {
 	root.Handle("/", web.Handler())
 
 	// Module API endpoints — each module registers its own routes.
+	// All clinical endpoints go through fhirMux (behind identity middleware).
 	s.registerEncounterRoutes(fhirMux)
 	s.registerAllergyRoutes(fhirMux)
 	s.registerProblemRoutes(fhirMux)
-	s.registerFamilyRoutes(root)
-	s.registerCareTeamRoutes(root)
+	s.registerFamilyRoutes(fhirMux)
+	s.registerCareTeamRoutes(fhirMux)
 
 	return root
 }
@@ -70,7 +71,7 @@ func extractID(ref string) string {
 			return ref[i+1:]
 		}
 	}
-	return ref
+	return ""
 }
 
 func writePlainJSON(w http.ResponseWriter, status int, v any) {

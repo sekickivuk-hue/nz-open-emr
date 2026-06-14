@@ -34,6 +34,16 @@ func (s *server) createEncounter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	patientID := extractID(enc.Subject.Reference)
+	if patientID == "" {
+		fhir.WriteError(w, 400, "required", "subject.reference must contain a valid patient ID")
+		return
+	}
+	var exists bool
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT EXISTS (SELECT 1 FROM patients WHERE id = $1)`, patientID).Scan(&exists); err != nil || !exists {
+		fhir.WriteError(w, 422, "not-found", "subject patient does not exist")
+		return
+	}
 	id := uuid.New()
 	now := time.Now().UTC().Format(time.RFC3339)
 	classCode := enc.Class.Code

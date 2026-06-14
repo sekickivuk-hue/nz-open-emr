@@ -54,12 +54,12 @@ type Coding struct {
 
 // NZ FHIR extension URLs (from FHIR NZ Base IG & NHI IG).
 const (
-	ExtEthnicity   = "http://hl7.org.nz/fhir/StructureDefinition/nz-ethnicity"
-	ExtNZCitizen   = "http://hl7.org.nz/fhir/StructureDefinition/nz-citizenship"
-	ExtBirthPlace  = "http://hl7.org.nz/fhir/StructureDefinition/birth-place"
-	ExtDHB         = "http://hl7.org.nz/fhir/StructureDefinition/dhb"
-	ExtIwi         = "http://hl7.org.nz/fhir/StructureDefinition/nz-iwi"
-	ExtNameInfoSrc = "http://hl7.org.nz/fhir/StructureDefinition/nz-name-information-source"
+	ExtEthnicity   = "https://hl7.org.nz/fhir/StructureDefinition/nz-ethnicity"
+	ExtNZCitizen   = "https://hl7.org.nz/fhir/StructureDefinition/nz-citizenship"
+	ExtBirthPlace  = "https://hl7.org.nz/fhir/StructureDefinition/birth-place"
+	ExtDHB         = "https://hl7.org.nz/fhir/StructureDefinition/dhb"
+	ExtIwi         = "https://hl7.org.nz/fhir/StructureDefinition/nz-iwi"
+	ExtNameInfoSrc = "https://hl7.org.nz/fhir/StructureDefinition/nz-name-information-source"
 )
 
 // EthnicityCodes returns the ethnicity Coding values from extensions, or nil.
