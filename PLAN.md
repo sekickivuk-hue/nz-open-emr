@@ -445,16 +445,52 @@ Treatment — **new Module 19: Referrals** in Band 2 (Clinical workflow modules)
 - **SLA dashboards**: tertiary services see triage backlog by specialty; GPs see response times by service. Builds quality-improvement data without separate reporting infrastructure.
 - **Integrates with sign-off (A6)**: incoming results post-referral attach to the specialist's inbox until acknowledged.
 
+## A8. Public health infrastructure
+
+**New requirement.** The system must natively support population-level public health: screening programmes, vaccination schedules, health targets, and operational performance metrics — all with automated clinical triggers and national reporting capability.
+
+Treatment — **new Module 20: Public Health** in Band 4 (Analytics & reporting), with runtime triggers woven into Band 2 (Clinical workflow) and Band 1 (Core platform):
+
+### Screenings & vaccinations
+
+- **Vaccination registry** — per-patient record of every administered dose (FHIR `Immunization`), linked to the National Immunisation Register (NIR) where available. Catch-up calculations for missed doses.
+- **Screening registry** — breast, cervical, bowel, AAA, newborn metabolic, antenatal, and any future national programme. Each is a configurable schedule with eligibility rules (age, sex, interval, risk factors).
+- **Configurable health targets** — administrators define a target as: population filter + trigger rule + action. Example: *"every patient turning 12 → HPV vaccination reminder → flag in clinician inbox + patient portal notification."* Targets are versioned, auditable data, not hard-coded — new national programmes are added by configuration, not by code release.
+- **Opportunistic prompting** — when a clinician opens a patient record, the system checks all active targets and surfaces unmet ones inline. A 12-year-old presenting with a sprained ankle still triggers the HPV reminder. The prompt is non-blocking but visible.
+- **Population recall campaigns** — a target can trigger bulk recall: identify every eligible-but-unactioned patient across a practice or region, generate a contact list for outreach.
+
+### National statistics (institutional research permission)
+
+- **Dedicated reporting pipeline** — a read-only, de-identified aggregate query surface separate from the clinical OLTP path. Queries run against the analytics lakehouse (Phase 4), not the operational database.
+- **Institutional research permission** — distinct from individual research consent (Phase 4). An institution (Ministry of Health, Health NZ, PHO, DHB successor, HDEC-approved study) requests a named aggregate report. Approval is a governed workflow: submit → clinical governance review → approve/reject with rationale. Every approved query is logged, versioned, and auditable.
+- **Pre-built national dashboards** — immunisation coverage by DHB region and ethnicity, screening uptake rates, health target attainment. Built once, refreshed on a schedule. Custom queries possible through the same governed pipeline.
+- **Privacy floor** — aggregate queries enforce a minimum cell size (k-anonymity, default k ≥ 10); smaller cells return `<suppressed>`. Differential privacy noise optional per-institution policy.
+
+### Operational metrics (flow & performance)
+
+- **Patient flow timestamps** — automatically captured from clinical events already in the system: registration → triage → bed assignment → ward arrival → discharge. Each transition is an auditable event; door-to-ward, door-to-discharge, and ED length-of-stay are derived views, not manually entered fields.
+- **Length of stay (LOS)** — per-encounter, per-ward, per-specialty. Drilled by acuity, age band, ethnicity, day-of-week of admission. Expected LOS models (based on DRG/anchor diagnosis) flag outliers for clinical review.
+- **Readmission rates** — 7-day, 28-day, and 30-day unplanned readmission to any facility within the connected network. Same-NHI matching; excludes planned readmissions (chemotherapy cycles, staged procedures).
+- **Dashboard + alerting** — operational dashboards for clinical directors, flow coordinators, and hospital management. Alert thresholds configurable: e.g. ED occupancy > 90% → notification to the on-call clinical director.
+- **Expandable metric framework** — metrics are defined declaratively (population + time window + aggregation). Adding a new metric (e.g. "time from referral to first specialist appointment") is a configuration change, not a code change. The framework is the contract; new ideas slot in as new metric definitions.
+
+### Architecture notes
+
+- Module 20 lives in **Band 4 (Analytics & reporting)** alongside the existing research tier, because national statistics and operational metrics share the same privacy constraints and read-only aggregate query pattern. However, the *triggers* (vaccination/screening reminders) are runtime logic in Band 2 — the module splits into a real-time trigger component and an analytics component.
+- Screening/vaccination schedules and health target definitions are stored as versioned configuration documents in the clinical record repository (A4), treated like any other governed clinical asset.
+- The expandable metric framework is deliberately not a separate subsystem: it is a thin declarative layer over the event store and audit log, querying events the system already captures. New metrics add zero new data collection — they only add new queries.
+- SLA dashboards from A7 (referrals) are the first consumer of this framework; operational flow metrics extend the same pattern.
+
 ## Updated build sequence
 
 The additions slot into the existing phases as follows:
 
 | Phase | Modules added/extended |
 |---|---|
-| 1 — Foundations | **Patient History Service** (sub-module of #6); field-level audit granularity in #5; clinic onboarding sub-component of #18 |
-| 2 — Clinical workflow | Sign-off / inbox sub-component of **#8**; new **Module 19 — Referrals** |
-| 3 — Imaging + apps | UI for medication reconciliation, allergy display, sign-off inbox, referral threads in #12; patient-facing referral and result visibility in #13 |
-| 4 — Research tier | (unchanged) |
+| 1 — Foundations | **Patient History Service** (sub-module of #6); field-level audit granularity in #5; clinic onboarding sub-component of #18; **vaccination & screening registry schemas** in clinical core (#6) |
+| 2 — Clinical workflow | Sign-off / inbox sub-component of **#8**; new **Module 19 — Referrals**; **health-target trigger engine** (real-time component of #20) woven into clinician app (#12) and patient portal (#13) |
+| 3 — Imaging + apps | UI for medication reconciliation, allergy display, sign-off inbox, referral threads in #12; patient-facing referral and result visibility in #13; **operational flow dashboards** (first tranche of #20 metrics: ED flow, LOS) |
+| 4 — Research tier | **Module 20 — Public Health** (national statistics reporting pipeline, governed institutional queries, pre-built dashboards, expandable metric framework); readmission analytics |
 | 5 — Reach + advanced features | AI surface (`/ai/` gateway), AI sign-off flow, model provenance recording. Hard-gated until external safety review. |
 
 ## Known gaps — organisational workstreams (added 2026-06-13)
