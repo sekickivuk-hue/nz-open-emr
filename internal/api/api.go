@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -74,6 +75,14 @@ func extractID(ref string) string {
 	return ""
 }
 
+// maxBody limits request bodies to 1 MiB.
+const maxBody = 1 << 20
+
+// limitReader wraps r.Body with a size cap and returns the limited reader.
+func limitReader(r *http.Request) io.ReadCloser {
+	return http.MaxBytesReader(nil, r.Body, maxBody)
+}
+
 func writePlainJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -116,7 +125,7 @@ func (s *server) auditRead(ctx context.Context, actor identity.Actor, resourceTy
 func (s *server) createPatient(w http.ResponseWriter, r *http.Request) {
 	actor := identity.FromContext(r.Context())
 	var p fhir.Patient
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+	if err := json.NewDecoder(limitReader(r)).Decode(&p); err != nil {
 		fhir.WriteError(w, 400, "structure", "invalid JSON: "+err.Error())
 		return
 	}
@@ -329,7 +338,7 @@ func (s *server) listPatients(w http.ResponseWriter, r *http.Request) {
 func (s *server) createNote(w http.ResponseWriter, r *http.Request) {
 	actor := identity.FromContext(r.Context())
 	var d fhir.DocumentReference
-	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
+	if err := json.NewDecoder(limitReader(r)).Decode(&d); err != nil {
 		fhir.WriteError(w, 400, "structure", "invalid JSON: "+err.Error())
 		return
 	}

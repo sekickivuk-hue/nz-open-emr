@@ -25,7 +25,7 @@ func (s *server) registerEncounterRoutes(mux *http.ServeMux) {
 func (s *server) createEncounter(w http.ResponseWriter, r *http.Request) {
 	actor := identity.FromContext(r.Context())
 	var enc fhir.EncounterFHIR
-	if err := json.NewDecoder(r.Body).Decode(&enc); err != nil {
+	if err := json.NewDecoder(limitReader(r)).Decode(&enc); err != nil {
 		fhir.WriteError(w, 400, "structure", "invalid JSON: "+err.Error())
 		return
 	}
@@ -147,7 +147,7 @@ func (s *server) addDiagnosis(w http.ResponseWriter, r *http.Request) {
 		Type  string `json:"type"` // working | discharge | billing
 		Rank  int    `json:"rank"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&diag); err != nil {
+	if err := json.NewDecoder(limitReader(r)).Decode(&diag); err != nil {
 		fhir.WriteError(w, 400, "structure", "invalid JSON: "+err.Error())
 		return
 	}
@@ -196,7 +196,7 @@ func (s *server) closeEncounter(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Disposition string `json:"disposition"` // home | transfer | deceased
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	json.NewDecoder(limitReader(r)).Decode(&req)
 	now := time.Now().UTC().Format(time.RFC3339)
 	payload, err := eventstore.Canonical(encounters.EncounterClosed{
 		EncounterID: encounterID, PatientID: patientID,

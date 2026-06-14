@@ -34,7 +34,7 @@ func (s *server) createFamilyConnection(w http.ResponseWriter, r *http.Request) 
 		RelativeID   string `json:"relativeId"`
 		Relationship string `json:"relationship"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(limitReader(r)).Decode(&req); err != nil {
 		fhir.WriteError(w, 400, "structure", "invalid JSON: "+err.Error())
 		return
 	}
@@ -142,7 +142,7 @@ func (s *server) createCareTeam(w http.ResponseWriter, r *http.Request) {
 		Role         string `json:"role"`
 		StartDate    string `json:"startDate"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(limitReader(r)).Decode(&req); err != nil {
 		fhir.WriteError(w, 400, "structure", "invalid JSON: "+err.Error())
 		return
 	}

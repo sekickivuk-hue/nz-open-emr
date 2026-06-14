@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,7 +26,7 @@ func (s *server) registerProblemRoutes(mux *http.ServeMux) {
 func (s *server) createCondition(w http.ResponseWriter, r *http.Request) {
 	actor := identity.FromContext(r.Context())
 	var c fhir.ConditionFHIR
-	if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+	if err := json.NewDecoder(limitReader(r)).Decode(&c); err != nil {
 		fhir.WriteError(w, 400, "structure", "invalid JSON: "+err.Error())
 		return
 	}
@@ -99,29 +101,41 @@ func (s *server) getCondition(w http.ResponseWriter, r *http.Request) {
 func (s *server) listConditions(w http.ResponseWriter, r *http.Request) {
 	actor := identity.FromContext(r.Context())
 	patientID := r.URL.Query().Get("patient")
+	status := r.URL.Query().Get("status") // active (default), resolved, all
+	if status == "" {
+		status = "active"
+	}
 	q := `SELECT id, patient_id, COALESCE(code,''), display, COALESCE(category,''), status, onset_date
 		FROM problems`
 	args := []any{}
+	var clauses []string
 	if patientID != "" {
-		q += ` WHERE patient_id = $1 AND status = 'active'`
+		clauses = append(clauses, fmt.Sprintf("patient_id = $%d", len(args)+1))
 		args = append(args, patientID)
+	}
+	if status != "all" {
+		clauses = append(clauses, fmt.Sprintf("status = $%d", len(args)+1))
+		args = append(args, status)
+	}
+	if len(clauses) > 0 {
+		q += " WHERE " + strings.Join(clauses, " AND ")
 	}
 	q += ` ORDER BY onset_date DESC LIMIT 50`
 	rows, err := s.pool.Query(r.Context(), q, args...)
 	if err != nil {
-		fhir.WriteError(w, 500, "exception", err.Error())
+		fhir.WriteError(w, 500, "exception", "database error")
 		return
 	}
 	defer rows.Close()
 	var resources []any
 	for rows.Next() {
-		var cid, pid, code, display, category, status string
+		var cid, pid, code, display, category, cstatus string
 		var onsetDate *time.Time
-		if err := rows.Scan(&cid, &pid, &code, &display, &category, &status, &onsetDate); err != nil {
-			fhir.WriteError(w, 500, "exception", err.Error())
+		if err := rows.Scan(&cid, &pid, &code, &display, &category, &cstatus, &onsetDate); err != nil {
+			fhir.WriteError(w, 500, "exception", "database error")
 			return
 		}
-		resources = append(resources, conditionResource(cid, pid, code, display, category, status, onsetDate))
+		resources = append(resources, conditionResource(cid, pid, code, display, category, cstatus, onsetDate))
 	}
 	if err := s.auditRead(r.Context(), actor, "Condition", "search"); err != nil {
 		fhir.WriteError(w, 500, "exception", "audit failed")

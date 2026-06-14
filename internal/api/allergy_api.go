@@ -24,7 +24,7 @@ func (s *server) registerAllergyRoutes(mux *http.ServeMux) {
 func (s *server) createAllergy(w http.ResponseWriter, r *http.Request) {
 	actor := identity.FromContext(r.Context())
 	var a fhir.AllergyIntoleranceFHIR
-	if err := json.NewDecoder(r.Body).Decode(&a); err != nil {
+	if err := json.NewDecoder(limitReader(r)).Decode(&a); err != nil {
 		fhir.WriteError(w, 400, "structure", "invalid JSON: "+err.Error())
 		return
 	}
@@ -143,7 +143,7 @@ func (s *server) removeAllergy(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Reason string `json:"reason"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	json.NewDecoder(limitReader(r)).Decode(&req)
 	now := time.Now().UTC().Format(time.RFC3339)
 	payload, err := eventstore.Canonical(allergies.AllergyRemoved{
 		AllergyID: id, PatientID: patientID,
