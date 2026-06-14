@@ -51,7 +51,26 @@ func New(pool *pgxpool.Pool, proj *projection.Projector) http.Handler {
 	root.HandleFunc("GET /healthz", s.healthz)
 	// Static demo UI at the root; it contains no PHI.
 	root.Handle("/", web.Handler())
+
+	// Module API endpoints — each module registers its own routes.
+	s.registerEncounterRoutes(fhirMux)
+	s.registerAllergyRoutes(fhirMux)
+	s.registerProblemRoutes(fhirMux)
+	s.registerFamilyRoutes(root)
+	s.registerCareTeamRoutes(root)
+
 	return root
+}
+
+// extractID strips the resource type prefix from a FHIR reference
+// (e.g. "Patient/abc-123" → "abc-123").
+func extractID(ref string) string {
+	for i := len(ref) - 1; i >= 0; i-- {
+		if ref[i] == '/' {
+			return ref[i+1:]
+		}
+	}
+	return ref
 }
 
 func writePlainJSON(w http.ResponseWriter, status int, v any) {
@@ -122,10 +141,21 @@ func (s *server) createPatient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := uuid.New()
+	ethCodes := make([]string, 0)
+	for _, c := range fhir.EthnicityCodes(p.Extension) {
+		ethCodes = append(ethCodes, c.Code)
+	}
+	citStatus, citSrc := fhir.NZCitizenship(p.Extension)
+	birthCountry, birthPlace := fhir.BirthPlace(p.Extension)
+	dhb := fhir.DHB(p.Extension)
+	iwiCodes := fhir.IwiCodes(p.Extension)
+
 	payload, err := eventstore.Canonical(eventstore.PatientRegistered{
 		ID: id.String(), NHI: nhiVal, NHIFormat: string(format),
 		FamilyName: p.Name[0].Family, GivenName: p.Name[0].Given[0],
-		BirthDate: p.BirthDate,
+		BirthDate: p.BirthDate, Gender: p.Gender,
+		EthnicityCodes: ethCodes, NZCitizenship: citStatus, CitizenshipSrc: citSrc,
+		BirthCountry: birthCountry, BirthPlace: birthPlace, DHBCode: dhb, IwiCodes: iwiCodes,
 	})
 	if err != nil {
 		fhir.WriteError(w, 500, "exception", err.Error())
@@ -150,14 +180,82 @@ func (s *server) createPatient(w http.ResponseWriter, r *http.Request) {
 	fhir.WriteJSON(w, 201, p)
 }
 
-func patientResource(id, nhiVal, family, given string, birth *time.Time) fhir.Patient {
+func patientResource(id, nhiVal, family, given, gender string, birth *time.Time,
+	ethCodes []string, citizenship, citizenshipSrc, birthCountry, birthPlace, dhb string, iwiCodes []string) fhir.Patient {
+
 	p := fhir.Patient{
 		ID:         id,
 		Identifier: []fhir.Identifier{{Use: "official", System: fhir.SystemNHI, Value: nhiVal}},
 		Name:       []fhir.HumanName{{Family: family, Given: []string{given}}},
+		Gender:     gender,
 	}
 	if birth != nil {
 		p.BirthDate = birth.Format("2006-01-02")
+	}
+	// Build FHIR extensions per NHI IG.
+	var exts []fhir.Extension
+	for _, c := range ethCodes {
+		exts = append(exts, fhir.Extension{
+			URL: fhir.ExtEthnicity,
+			ValueCodeableConcept: &fhir.CodeableConcept{
+				Coding: []fhir.Coding{{Code: c}},
+			},
+		})
+	}
+	if citizenship != "" || citizenshipSrc != "" {
+		inner := []fhir.Extension{}
+		if citizenship != "" {
+			inner = append(inner, fhir.Extension{
+				URL: "status",
+				ValueCodeableConcept: &fhir.CodeableConcept{
+					Coding: []fhir.Coding{{Code: citizenship}},
+				},
+			})
+		}
+		if citizenshipSrc != "" {
+			inner = append(inner, fhir.Extension{
+				URL: "source",
+				ValueCodeableConcept: &fhir.CodeableConcept{
+					Coding: []fhir.Coding{{Code: citizenshipSrc}},
+				},
+			})
+		}
+		exts = append(exts, fhir.Extension{URL: fhir.ExtNZCitizen, Extension: inner})
+	}
+	if birthCountry != "" || birthPlace != "" {
+		inner := []fhir.Extension{}
+		if birthCountry != "" {
+			inner = append(inner, fhir.Extension{
+				URL: "country",
+				ValueCodeableConcept: &fhir.CodeableConcept{
+					Coding: []fhir.Coding{{Code: birthCountry}},
+				},
+			})
+		}
+		if birthPlace != "" {
+			s := birthPlace
+			inner = append(inner, fhir.Extension{URL: "place", ValueString: &s})
+		}
+		exts = append(exts, fhir.Extension{URL: fhir.ExtBirthPlace, Extension: inner})
+	}
+	if dhb != "" {
+		exts = append(exts, fhir.Extension{
+			URL: fhir.ExtDHB,
+			ValueCodeableConcept: &fhir.CodeableConcept{
+				Coding: []fhir.Coding{{Code: dhb}},
+			},
+		})
+	}
+	for _, c := range iwiCodes {
+		exts = append(exts, fhir.Extension{
+			URL: fhir.ExtIwi,
+			ValueCodeableConcept: &fhir.CodeableConcept{
+				Coding: []fhir.Coding{{Code: c}},
+			},
+		})
+	}
+	if len(exts) > 0 {
+		p.Extension = exts
 	}
 	return p
 }
@@ -165,12 +263,15 @@ func patientResource(id, nhiVal, family, given string, birth *time.Time) fhir.Pa
 func (s *server) getPatient(w http.ResponseWriter, r *http.Request) {
 	actor := identity.FromContext(r.Context())
 	id := r.PathValue("id")
-	var nhiVal, family, given string
+	var nhiVal, family, given, gender, citizenship, citizenshipSrc, birthCountry, birthPlace, dhb string
 	var birth *time.Time
+	var ethCodes, iwiCodes []string
 	err := s.pool.QueryRow(r.Context(), `
-		SELECT nhi, family_name, given_name, birth_date
+		SELECT nhi, family_name, given_name, gender, birth_date,
+			ethnicity_codes, nz_citizenship, citizenship_src, birth_country, birth_place, dhb_code, iwi_codes
 		FROM patients WHERE id = $1`, id).
-		Scan(&nhiVal, &family, &given, &birth)
+		Scan(&nhiVal, &family, &given, &gender, &birth,
+			&ethCodes, &citizenship, &citizenshipSrc, &birthCountry, &birthPlace, &dhb, &iwiCodes)
 	if err != nil {
 		fhir.WriteError(w, 404, "not-found", "no such patient")
 		return
@@ -179,12 +280,17 @@ func (s *server) getPatient(w http.ResponseWriter, r *http.Request) {
 		fhir.WriteError(w, 500, "exception", "audit failed; read refused")
 		return
 	}
-	fhir.WriteJSON(w, 200, patientResource(id, nhiVal, family, given, birth))
+	if ethCodes == nil { ethCodes = []string{} }
+	if iwiCodes == nil { iwiCodes = []string{} }
+	fhir.WriteJSON(w, 200, patientResource(id, nhiVal, family, given, gender, birth,
+		ethCodes, citizenship, citizenshipSrc, birthCountry, birthPlace, dhb, iwiCodes))
 }
 
 func (s *server) listPatients(w http.ResponseWriter, r *http.Request) {
 	actor := identity.FromContext(r.Context())
-	q := `SELECT id, nhi, family_name, given_name, birth_date FROM patients`
+	q := `SELECT id, nhi, family_name, given_name, gender, birth_date,
+		ethnicity_codes, nz_citizenship, citizenship_src, birth_country, birth_place, dhb_code, iwi_codes
+		FROM patients`
 	args := []any{}
 	if ident := r.URL.Query().Get("identifier"); ident != "" {
 		q += ` WHERE nhi = $1`
@@ -199,13 +305,18 @@ func (s *server) listPatients(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 	var resources []any
 	for rows.Next() {
-		var id, nhiVal, family, given string
+		var id, nhiVal, family, given, gender, citizenship, citizenshipSrc, birthCountry, birthPlace, dhb string
 		var birth *time.Time
-		if err := rows.Scan(&id, &nhiVal, &family, &given, &birth); err != nil {
+		var ethCodes, iwiCodes []string
+		if err := rows.Scan(&id, &nhiVal, &family, &given, &gender, &birth,
+			&ethCodes, &citizenship, &citizenshipSrc, &birthCountry, &birthPlace, &dhb, &iwiCodes); err != nil {
 			fhir.WriteError(w, 500, "exception", err.Error())
 			return
 		}
-		resources = append(resources, patientResource(id, nhiVal, family, given, birth))
+		if ethCodes == nil { ethCodes = []string{} }
+		if iwiCodes == nil { iwiCodes = []string{} }
+		resources = append(resources, patientResource(id, nhiVal, family, given, gender, birth,
+			ethCodes, citizenship, citizenshipSrc, birthCountry, birthPlace, dhb, iwiCodes))
 	}
 	if err := s.auditRead(r.Context(), actor, "Patient", "search"); err != nil {
 		fhir.WriteError(w, 500, "exception", "audit failed; read refused")
@@ -359,7 +470,7 @@ func (s *server) listAudit(w http.ResponseWriter, r *http.Request) {
 			Action:    action,
 			Recorded:  at.UTC().Format(time.RFC3339Nano),
 			Outcome:   "0",
-			Extension: []fhir.Extension{{URL: fhir.ExtAuditHash, ValueString: hex.EncodeToString(hash)}},
+			Extension: []fhir.Extension{{URL: fhir.ExtAuditHash, ValueString: strPtr(hex.EncodeToString(hash))}},
 			Agent: []fhir.AuditAgent{{Requestor: true, Who: &fhir.Reference{
 				Display:    name,
 				Identifier: &fhir.Identifier{System: fhir.SystemHPI, Value: actorHPI},
@@ -399,3 +510,5 @@ func (s *server) healthz(w http.ResponseWriter, r *http.Request) {
 	}
 	writePlainJSON(w, 200, map[string]string{"status": "ok"})
 }
+
+func strPtr(s string) *string { return &s }

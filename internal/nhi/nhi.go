@@ -48,7 +48,11 @@ func Validate(s string) (Format, error) {
 		}
 		return FormatLegacy, nil
 	}
-	if alphabet[23-sum%24] != check {
+	// HISO 10046:2025 §2.1.4: modulo 23 (not 24), result
+	// subtracted from 23 to give a 1‑based index into the
+	// 24‑letter alphabet. In our 0‑based alphabet that becomes
+	// alphabet[22 − (sum % 23)].
+	if alphabet[22-(sum%23)] != check {
 		return "", ErrInvalid
 	}
 	return FormatNew, nil
@@ -83,7 +87,7 @@ func GenerateSynthetic(f Format) (string, error) {
 			}
 			return string(b) + string(byte('0'+(11-mod)%10)), nil
 		}
-		return string(b) + string(alphabet[23-sum%24]), nil
+		return string(b) + string(alphabet[22-(sum%23)]), nil
 	}
 	return "", errors.New("nhi: generation failed")
 }

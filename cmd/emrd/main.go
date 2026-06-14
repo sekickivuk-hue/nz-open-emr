@@ -16,6 +16,13 @@ import (
 	"github.com/sekickivuk-hue/nz-open-emr/internal/audit"
 	"github.com/sekickivuk-hue/nz-open-emr/internal/db"
 	"github.com/sekickivuk-hue/nz-open-emr/internal/projection"
+
+	// Module init() registrations — add one import per new module.
+	_ "github.com/sekickivuk-hue/nz-open-emr/module/allergies"
+	_ "github.com/sekickivuk-hue/nz-open-emr/module/careteam"
+	_ "github.com/sekickivuk-hue/nz-open-emr/module/encounters"
+	_ "github.com/sekickivuk-hue/nz-open-emr/module/family"
+	_ "github.com/sekickivuk-hue/nz-open-emr/module/problems"
 )
 
 func main() {

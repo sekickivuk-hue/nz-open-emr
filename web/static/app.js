@@ -2,13 +2,11 @@
 
 const SYSTEM_NHI = "https://standards.digital.health.nz/ns/nhi-id";
 
-const state = {
-  actor: null,
-  selectedPatient: null,
-};
+const state = { actor: null, selectedPatient: null, selectedEncounter: null, patients: [] };
 
 const $ = (id) => document.getElementById(id);
 
+// --- api ---------------------------------------------------------------
 async function api(path, opts = {}) {
   const headers = Object.assign(
     { "Content-Type": "application/json" },
@@ -18,26 +16,10 @@ async function api(path, opts = {}) {
   const resp = await fetch(path, Object.assign({}, opts, { headers }));
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
-    const msg =
-      (body.issue && body.issue[0] && body.issue[0].diagnostics) ||
-      body.error || resp.statusText;
+    const msg = (body.issue && body.issue[0] && body.issue[0].diagnostics) || body.error || resp.statusText;
     throw new Error(msg);
   }
   return body;
-}
-
-// UTF-8-safe base64 helpers (chunk-safe for any note length).
-function b64encode(str) {
-  const bytes = new TextEncoder().encode(str);
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin);
-}
-function b64decode(b64) {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
 }
 
 function el(tag, cls, text) {
@@ -47,7 +29,18 @@ function el(tag, cls, text) {
   return e;
 }
 
-// ---- actors ----
+// --- tabs --------------------------------------------------------------
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`[data-panel="${name}"]`).classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'encounters') refreshEncounterPanel();
+  if (name === 'allergies') refreshAllergyPanel();
+  if (name === 'problems') refreshProblemPanel();
+}
+
+// --- actors ------------------------------------------------------------
 async function loadActors() {
   const actors = await api("/demo/actors");
   const sel = $("actor");
@@ -61,7 +54,7 @@ async function loadActors() {
   sel.onchange = () => { state.actor = sel.value; };
 }
 
-// ---- NHI preview ----
+// --- NHI preview -------------------------------------------------------
 function chosenFormat() {
   return document.querySelector('input[name="fmt"]:checked').value;
 }
@@ -71,68 +64,104 @@ async function refreshNHIPreview() {
   $("nhi-preview").textContent = g.nhi;
 }
 
-// ---- patients ----
+// --- patients ----------------------------------------------------------
 async function loadPatients() {
   const bundle = await api("/fhir/r4/Patient");
-  const list = $("patient-list");
-  list.innerHTML = "";
-  for (const entry of bundle.entry || []) {
-    const p = entry.resource;
-    const li = el("li", "clickable");
-    const name = `${p.name[0].given[0]} ${p.name[0].family}`;
-    li.appendChild(el("span", null, name));
-    li.appendChild(el("code", "badge", p.identifier[0].value));
-    li.onclick = () => selectPatient(p, name);
-    list.appendChild(li);
-  }
+  state.patients = (bundle.entry || []).map(e => e.resource);
+  refreshPatientSelects();
 }
 
-async function selectPatient(p, name) {
-  state.selectedPatient = p.id;
-  $("selected-patient").textContent = name;
-  $("patient-meta").textContent =
-    `NHI ${p.identifier[0].value}` + (p.birthDate ? ` · born ${p.birthDate}` : "");
-  $("new-note").hidden = false;
-  await loadNotes();
-}
-
-async function loadNotes() {
-  if (!state.selectedPatient) return;
-  const bundle = await api(`/fhir/r4/DocumentReference?patient=${state.selectedPatient}`);
-  const list = $("note-list");
-  list.innerHTML = "";
-  for (const entry of bundle.entry || []) {
-    const d = entry.resource;
-    const li = el("li");
-    li.appendChild(el("div", "note-text", b64decode(d.content[0].attachment.data)));
-    const author = d.author && d.author[0] ? d.author[0].display : "unknown";
-    li.appendChild(el("small", "muted", `${author} · ${new Date(d.date).toLocaleString()}`));
-    list.appendChild(li);
-  }
-}
-
-// ---- audit ----
-async function pollAudit() {
-  try {
-    const bundle = await api("/fhir/r4/AuditEvent?_count=30");
-    const list = $("audit-list");
-    list.innerHTML = "";
-    for (const entry of bundle.entry || []) {
-      const a = entry.resource;
-      const li = el("li");
-      const who = a.agent[0].who.display;
-      const what = a.entity && a.entity[0] ? a.entity[0].what.reference : "";
-      const hash = (a.extension && a.extension[0] ? a.extension[0].valueString : "").slice(0, 12);
-      li.appendChild(el("span", `action action-${a.action}`, a.action));
-      li.appendChild(el("span", null, ` ${what} — ${who} `));
-      li.appendChild(el("code", "hash", hash));
-      list.appendChild(li);
+function refreshPatientSelects() {
+  for (const selId of ['enc-patient', 'alg-patient', 'prb-patient']) {
+    const sel = $(selId); if (!sel) continue;
+    const val = sel.value;
+    sel.innerHTML = '<option value="">--</option>';
+    for (const p of state.patients) {
+      const name = p.name && p.name[0] ? `${p.name[0].given[0]} ${p.name[0].family}` : p.id;
+      const o = el("option", null, `${name} (${p.identifier[0].value})`);
+      o.value = p.id;
+      sel.appendChild(o);
     }
-  } catch (e) {
-    /* audit poll is best-effort; UI stays usable */
+    sel.value = val;
   }
 }
 
+// --- encounters --------------------------------------------------------
+async function refreshEncounterPanel() {
+  const pid = $("enc-patient").value;
+  if (!pid) { $("encounter-list").innerHTML = ""; return; }
+  const bundle = await api(`/fhir/r4/Encounter?patient=${pid}`);
+  const list = $("encounter-list");
+  list.innerHTML = "";
+  for (const entry of bundle.entry || []) {
+    const e = entry.resource;
+    const li = el("li");
+    const cls = e.class && e.class.code ? e.class.code : "?";
+    li.appendChild(el("span", null, `${cls} — ${e.status}`));
+    if (e.period) li.appendChild(el("small", "muted", ` ${e.period.start?.slice(0,10) || ''}`));
+    li.onclick = () => selectEncounter(e);
+    list.appendChild(li);
+  }
+}
+
+async function selectEncounter(e) {
+  state.selectedEncounter = e.id;
+  $("enc-detail").hidden = false;
+  $("enc-id").textContent = e.id;
+  refreshDiagnoses(e.id);
+}
+
+async function refreshDiagnoses(eid) {
+  const enc = await api(`/fhir/r4/Encounter/${eid}`);
+  const list = $("diag-list");
+  list.innerHTML = "";
+  if (!enc.diagnosis) return;
+  for (const d of enc.diagnosis) {
+    const li = el("li");
+    li.textContent = d.condition?.display || d.condition?.reference || '(diagnosis)';
+    list.appendChild(li);
+  }
+}
+
+// --- allergies ---------------------------------------------------------
+async function refreshAllergyPanel() {
+  const pid = $("alg-patient").value;
+  if (!pid) { $("allergy-list").innerHTML = ""; return; }
+  const bundle = await api(`/fhir/r4/AllergyIntolerance?patient=${pid}`);
+  const list = $("allergy-list");
+  list.innerHTML = "";
+  for (const entry of bundle.entry || []) {
+    const a = entry.resource;
+    const sub = a.code?.coding?.[0]?.display || "(unknown)";
+    const sev = a.reaction?.[0]?.severity || "";
+    const li = el("li");
+    li.appendChild(el("span", "sev-" + sev, sev ? sev[0].toUpperCase() : "?"));
+    li.appendChild(el("span", null, ` ${sub}`));
+    if (a.reaction?.[0]?.manifestation?.[0]?.text)
+      li.appendChild(el("small", "muted", ` — ${a.reaction[0].manifestation[0].text}`));
+    list.appendChild(li);
+  }
+}
+
+// --- problems ----------------------------------------------------------
+async function refreshProblemPanel() {
+  const pid = $("prb-patient").value;
+  if (!pid) { $("problem-list").innerHTML = ""; return; }
+  const bundle = await api(`/fhir/r4/Condition?patient=${pid}`);
+  const list = $("problem-list");
+  list.innerHTML = "";
+  for (const entry of bundle.entry || []) {
+    const c = entry.resource;
+    const display = c.code?.coding?.[0]?.display || c.code?.coding?.[0]?.code || "(unknown)";
+    const status = c.clinicalStatus?.coding?.[0]?.code || "?";
+    const li = el("li");
+    li.appendChild(el("span", "status-" + status, status));
+    li.appendChild(el("span", null, ` ${display}`));
+    list.appendChild(li);
+  }
+}
+
+// --- audit -------------------------------------------------------------
 async function verifyChain() {
   const out = $("verify-result");
   out.className = "";
@@ -147,68 +176,132 @@ async function verifyChain() {
   }
 }
 
-// ---- forms ----
+// --- forms -------------------------------------------------------------
 function wireForms() {
-  for (const radio of document.querySelectorAll('input[name="fmt"]')) {
+  // Tab clicks
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.onclick = () => switchTab(btn.dataset.panel);
+  });
+
+  // NHI format
+  for (const radio of document.querySelectorAll('input[name="fmt"]'))
     radio.onchange = refreshNHIPreview;
-  }
   $("regen-nhi").onclick = refreshNHIPreview;
 
+  // Patient select changes
+  $("enc-patient").onchange = refreshEncounterPanel;
+  $("alg-patient").onchange = refreshAllergyPanel;
+  $("prb-patient").onchange = refreshProblemPanel;
+
+  // Create patient
   $("new-patient").onsubmit = async (ev) => {
     ev.preventDefault();
     $("patient-error").textContent = "";
     const nhi = $("nhi-preview").textContent;
+    const gender = $("gender").value;
+    const exts = [];
+    for (const o of $("ethnicity").selectedOptions)
+      exts.push({ url: "http://hl7.org.nz/fhir/StructureDefinition/nz-ethnicity", valueCodeableConcept: { coding: [{ code: o.value }] } });
+    for (const o of $("iwi").selectedOptions)
+      exts.push({ url: "http://hl7.org.nz/fhir/StructureDefinition/nz-iwi", valueCodeableConcept: { coding: [{ code: o.value }] } });
     const patient = {
       resourceType: "Patient",
       identifier: [{ use: "official", system: SYSTEM_NHI, value: nhi }],
       name: [{ family: $("family").value.trim(), given: [$("given").value.trim()] }],
     };
     if ($("dob").value) patient.birthDate = $("dob").value;
+    if (gender) patient.gender = gender;
+    if (exts.length) patient.extension = exts;
     try {
       await api("/fhir/r4/Patient", { method: "POST", body: JSON.stringify(patient) });
       $("new-patient").reset();
       refreshNHIPreview();
-      // Projection lags writes by up to ~200ms; refresh twice.
       setTimeout(loadPatients, 300);
       setTimeout(loadPatients, 1000);
-    } catch (e) {
-      $("patient-error").textContent = e.message;
-    }
+    } catch (e) { $("patient-error").textContent = e.message; }
   };
 
-  $("new-note").onsubmit = async (ev) => {
+  // Open encounter
+  $("new-encounter").onsubmit = async (ev) => {
     ev.preventDefault();
-    $("note-error").textContent = "";
-    const doc = {
-      resourceType: "DocumentReference",
-      status: "current",
-      subject: { reference: `Patient/${state.selectedPatient}` },
-      content: [{ attachment: { contentType: "text/plain", data: b64encode($("note-text").value) } }],
-    };
+    const pid = $("enc-patient").value;
+    if (!pid) return;
     try {
-      await api("/fhir/r4/DocumentReference", { method: "POST", body: JSON.stringify(doc) });
-      $("note-text").value = "";
-      setTimeout(loadNotes, 300);
-      setTimeout(loadNotes, 1000);
-    } catch (e) {
-      $("note-error").textContent = e.message;
-    }
+      await api("/fhir/r4/Encounter", { method: "POST", body: JSON.stringify({
+        resourceType: "Encounter", status: "in-progress",
+        class: { code: $("enc-class").value },
+        subject: { reference: `Patient/${pid}` }
+      })});
+      setTimeout(refreshEncounterPanel, 400);
+    } catch (e) { alert(e.message); }
+  };
+
+  // Add diagnosis
+  $("add-diagnosis").onsubmit = async (ev) => {
+    ev.preventDefault();
+    if (!state.selectedEncounter) return;
+    try {
+      await api(`/fhir/r4/Encounter/${state.selectedEncounter}/diagnosis`, { method: "POST", body: JSON.stringify({
+        display: $("diag-display").value, code: $("diag-code").value, type: $("diag-type").value, rank: 1
+      })});
+      $("diag-display").value = ""; $("diag-code").value = "";
+      setTimeout(() => refreshDiagnoses(state.selectedEncounter), 300);
+    } catch (e) { $("enc-error").textContent = e.message; }
+  };
+
+  // Close encounter
+  $("close-encounter").onclick = async () => {
+    if (!state.selectedEncounter) return;
+    try {
+      await api(`/fhir/r4/Encounter/${state.selectedEncounter}/close`, { method: "POST", body: JSON.stringify({ disposition: "home" }) });
+      state.selectedEncounter = null;
+      $("enc-detail").hidden = true;
+      setTimeout(refreshEncounterPanel, 400);
+    } catch (e) { $("enc-error").textContent = e.message; }
+  };
+
+  // Record allergy
+  $("new-allergy").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const pid = $("alg-patient").value;
+    if (!pid) return;
+    try {
+      await api("/fhir/r4/AllergyIntolerance", { method: "POST", body: JSON.stringify({
+        resourceType: "AllergyIntolerance",
+        code: { coding: [{ display: $("alg-substance").value }] },
+        patient: { reference: `Patient/${pid}` },
+        reaction: [{ manifestation: [{ text: $("alg-reaction").value }], severity: $("alg-severity").value }]
+      })});
+      $("alg-substance").value = ""; $("alg-reaction").value = "";
+      setTimeout(refreshAllergyPanel, 400);
+    } catch (e) { alert(e.message); }
+  };
+
+  // Add problem
+  $("new-problem").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const pid = $("prb-patient").value;
+    if (!pid) return;
+    try {
+      await api("/fhir/r4/Condition", { method: "POST", body: JSON.stringify({
+        resourceType: "Condition",
+        code: { coding: [{ display: $("prb-display").value }] },
+        subject: { reference: `Patient/${pid}` },
+        category: [{ coding: [{ code: $("prb-category").value }] }]
+      })});
+      $("prb-display").value = "";
+      setTimeout(refreshProblemPanel, 400);
+    } catch (e) { alert(e.message); }
   };
 
   $("verify").onclick = verifyChain;
 }
 
-// ---- boot ----
-(async function boot() {
-  wireForms();
+// --- init --------------------------------------------------------------
+(async function init() {
   await loadActors();
   await refreshNHIPreview();
   await loadPatients();
-  await pollAudit();
-  setInterval(pollAudit, 2000);
-})().catch((e) => {
-  document.body.insertAdjacentHTML(
-    "afterbegin",
-    `<div class="error">Failed to start: ${e.message}</div>`
-  );
-});
+  wireForms();
+  setInterval(async () => { await loadPatients(); }, 5000);
+})();

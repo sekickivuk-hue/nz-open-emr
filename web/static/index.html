@@ -8,47 +8,111 @@
 </head>
 <body>
 <header>
-  <h1>Kia ora — <span class="brand">nz-open-emr</span> <small>walking skeleton</small></h1>
-  <label class="actor-picker">Acting as <select id="actor"></select></label>
+  <h1>nz-open-emr <small>walking skeleton</small></h1>
+  <label>Acting as <select id="actor"></select></label>
 </header>
 <main>
-  <section id="patients-panel" class="panel">
-    <h2>Patients</h2>
-    <ul id="patient-list" class="list"></ul>
+  <nav class="tabs">
+    <button class="tab active" data-panel="patients">Patient</button>
+    <button class="tab" data-panel="encounters">Encounters</button>
+    <button class="tab" data-panel="allergies">Allergies</button>
+    <button class="tab" data-panel="problems">Problems</button>
+  </nav>
+
+  <!-- Patient -->
+  <section id="panel-patients" class="panel active">
+    <h2>Register patient</h2>
     <form id="new-patient">
-      <h3>Register synthetic patient</h3>
-      <input id="given" placeholder="Given name" required autocomplete="off">
-      <input id="family" placeholder="Family name" required autocomplete="off">
-      <input id="dob" type="date" aria-label="Date of birth">
-      <fieldset>
-        <legend>NHI format</legend>
+      <div class="row">
+        <input id="given" placeholder="Given name" required>
+        <input id="family" placeholder="Family name" required>
+      </div>
+      <div class="row">
+        <input id="dob" type="date" aria-label="Date of birth">
+        <select id="gender"><option value="">Gender</option><option>male</option><option>female</option><option>other</option></select>
+      </div>
+      <div class="row">
+        <select id="ethnicity" multiple size="3" title="Ethnicity (ctrl+click for multiple)">
+          <option value="21111">Māori</option><option value="12111">NZ European</option>
+          <option value="31111">Samoan</option><option value="42111">Chinese</option>
+          <option value="43111">Indian</option>
+        </select>
+        <select id="iwi" multiple size="3" title="Iwi (ctrl+click for multiple)">
+          <option value="0106">Ngāti Porou</option><option value="0401">Ngā Puhi</option>
+          <option value="0702">Ngāti Toa</option><option value="1601">Tūhoe</option>
+        </select>
+      </div>
+      <fieldset><legend>NHI</legend>
         <label><input type="radio" name="fmt" value="legacy" checked> legacy <code>AAA111#</code></label>
-        <label><input type="radio" name="fmt" value="new"> new <code>AAA11A#</code> <small>(from Jul 2026)</small></label>
+        <label><input type="radio" name="fmt" value="new"> new <code>AAA11A#</code></label>
+        <span>Synthetic: <code id="nhi-preview">…</code> <button type="button" id="regen-nhi">↻</button></span>
       </fieldset>
-      <div class="nhi-row">Synthetic NHI: <code id="nhi-preview">…</code> <button type="button" id="regen-nhi" title="Generate another">↻</button></div>
       <button type="submit">Create patient</button>
-      <div id="patient-error" class="error" role="alert"></div>
+      <div id="patient-error" class="error"></div>
     </form>
   </section>
 
-  <section id="notes-panel" class="panel">
-    <h2 id="selected-patient">Select a patient</h2>
-    <div id="patient-meta"></div>
-    <ul id="note-list" class="list"></ul>
-    <form id="new-note" hidden>
-      <textarea id="note-text" placeholder="Clinical note…" required rows="4"></textarea>
-      <button type="submit">Save note</button>
-      <div id="note-error" class="error" role="alert"></div>
+  <!-- Encounters -->
+  <section id="panel-encounters" class="panel">
+    <h2>Encounters</h2>
+    <div class="patient-select">
+      <label>Patient: <select id="enc-patient"></select></label>
+    </div>
+    <ul id="encounter-list" class="list"></ul>
+    <form id="new-encounter">
+      <select id="enc-class"><option value="AMB">Ambulatory (GP visit)</option><option value="EMER">Emergency</option><option value="IMP">Inpatient</option></select>
+      <button type="submit">Open encounter</button>
+    </form>
+    <div class="encounter-detail" id="enc-detail" hidden>
+      <h3>Encounter <code id="enc-id"></code></h3>
+      <form id="add-diagnosis">
+        <input id="diag-display" placeholder="Diagnosis (e.g. Acute appendicitis)" required>
+        <input id="diag-code" placeholder="Code (e.g. K35)">
+        <select id="diag-type"><option value="working">Working</option><option value="discharge">Discharge</option></select>
+        <button type="submit">Add diagnosis</button>
+      </form>
+      <ul id="diag-list" class="list"></ul>
+      <button id="close-encounter">Close encounter (discharge home)</button>
+      <div id="enc-error" class="error"></div>
+    </div>
+  </section>
+
+  <!-- Allergies -->
+  <section id="panel-allergies" class="panel">
+    <h2>Allergies</h2>
+    <div class="patient-select">
+      <label>Patient: <select id="alg-patient"></select></label>
+    </div>
+    <ul id="allergy-list" class="list"></ul>
+    <form id="new-allergy">
+      <input id="alg-substance" placeholder="Substance (e.g. Penicillin)" required>
+      <input id="alg-reaction" placeholder="Reaction (e.g. Anaphylaxis)">
+      <select id="alg-severity"><option value="mild">Mild</option><option value="moderate">Moderate</option><option value="severe" selected>Severe</option></select>
+      <button type="submit">Record allergy</button>
     </form>
   </section>
 
-  <section id="audit-panel" class="panel">
-    <h2>Audit trail <button id="verify" type="button">Verify chain</button></h2>
-    <div id="verify-result" role="status"></div>
-    <ol id="audit-list" class="list mono" reversed></ol>
+  <!-- Problems -->
+  <section id="panel-problems" class="panel">
+    <h2>Problem list</h2>
+    <div class="patient-select">
+      <label>Patient: <select id="prb-patient"></select></label>
+    </div>
+    <ul id="problem-list" class="list"></ul>
+    <form id="new-problem">
+      <input id="prb-display" placeholder="Condition (e.g. Hypertension)" required>
+      <select id="prb-category"><option value="medical">Medical</option><option value="surgical">Surgical</option></select>
+      <button type="submit">Add to problem list</button>
+    </form>
+  </section>
+
+  <!-- Audit -->
+  <section id="audit-panel" class="panel" style="margin-top:1rem">
+    <h2>Audit <button id="verify">Verify chain</button></h2>
+    <div id="verify-result"></div>
   </section>
 </main>
-<footer>Every read and write above is hash-chained (BLAKE3). Try the tamper demo in the README — edit a row in Postgres and watch verification break. All patients are synthetic (Z-prefix NHIs).</footer>
+<footer>All patients synthetic (Z-prefix NHI). Audit chain: BLAKE3. HISO 10046:2025 compliant.</footer>
 <script src="app.js"></script>
 </body>
 </html>

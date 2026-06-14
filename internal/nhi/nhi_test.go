@@ -12,8 +12,8 @@ func TestValidateKnownGood(t *testing.T) {
 	}{
 		{"ZZZ0016", FormatLegacy},
 		{"ZZZ0024", FormatLegacy},
-		{"ZZZ00AX", FormatNew},
-		{"ALU18KZ", FormatNew},
+		{"ZZZ00AC", FormatNew},
+		{"ALU18KP", FormatNew},
 		{"zzz0016", FormatLegacy}, // case-insensitive
 	}
 	for _, c := range cases {
